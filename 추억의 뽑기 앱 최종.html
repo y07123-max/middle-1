@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>추억의 종이 뽑기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        body {
+            font-family: 'Jua', sans-serif;
+            background-color: #fce78f;
+            background-image: radial-gradient(#f7d547 20%, transparent 20%), radial-gradient(#f7d547 20%, transparent 20%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 뷰 컨트롤러 */
+        .view-section { display: none; width: 100%; justify-content: center; }
+        .view-section.active { display: flex; }
+
+        /* 홈 화면 (목록) 스타일 */
+        #home-container {
+            background-color: #ffd700;
+            border: 8px solid #ffaa00;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .board-list {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: rgba(255,255,255,0.5);
+            border-radius: 10px;
+            border: 3px dashed #ffaa00;
+        }
+
+        .board-item {
+            background-color: white;
+            border: 3px solid #333;
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 3px 3px 0 #333;
+            transition: transform 0.1s;
+        }
+
+        .board-item:hover {
+            transform: translateX(5px);
+            border-color: #ff1493;
+        }
+
+        .board-info {
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            flex-grow: 1;
+        }
+        
+        .board-name { font-size: 1.5rem; color: #333; }
+        .board-date { font-size: 0.9rem; color: #888; margin-top: 5px; }
+
+        .btn-delete {
+            background-color: #ff4444; color: white; border: 2px solid #cc0000;
+            padding: 5px 10px; border-radius: 5px; cursor: pointer; font-family: inherit;
+        }
+
+        /* 게임 화면 스타일 */
+        #game-container {
+            background-color: #ffd700;
+            border: 8px solid #ffaa00;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            max-width: 95vw;
+            width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute; top: 20px; left: 20px;
+            background-color: white; color: #333; border: 3px solid #333;
+            padding: 5px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer;
+            font-family: inherit; box-shadow: 2px 2px 0 #333;
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            color: #ff1493;
+            text-shadow: 3px 3px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+            margin-bottom: 20px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+        }
+
+        #ticket-board {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 2px;
+            background-color: #003399;
+            padding: 10px;
+            border: 4px solid #002266;
+            width: 100%;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+            #ticket-board { grid-template-columns: repeat(15, 1fr); }
+            .header-title { font-size: 2rem; margin-top: 40px; }
+            .back-btn { font-size: 1rem; padding: 5px 10px; }
+        }
+        @media (max-width: 480px) {
+            #ticket-board { grid-template-columns: repeat(10, 1fr); gap: 1px;}
+            .header-title { font-size: 1.5rem; }
+        }
+
+        .ticket {
+            background-color: #0044cc; border: 1px solid #002266; aspect-ratio: 1 / 1.2;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            position: relative; transition: transform 0.1s, background-color 0.2s; overflow: hidden;
+        }
+
+        .ticket:hover:not(.opened) {
+            transform: scale(1.1); z-index: 10; background-color: #0055ff;
+        }
+
+        .ticket::before { content: '★'; color: #ffd700; font-size: 1.2vw; }
+        @media (max-width: 768px) { .ticket::before { font-size: 2vw; } }
+        @media (max-width: 480px) { .ticket::before { font-size: 3.5vw; } }
+
+        .ticket.opened { cursor: default; background-color: #fff; border-color: #ccc; }
+        .ticket.opened::before { display: none; }
+
+        .result-text {
+            font-size: 1vw; font-weight: bold; display: none; text-align: center; width: 100%;
+        }
+        @media (max-width: 768px) { .result-text { font-size: 1.5vw; } }
+        @media (max-width: 480px) { .result-text { font-size: 2.5vw; } }
+
+        .ticket.opened .result-text { display: block; animation: popIn 0.3s ease-out; }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
+
+        .rank-1 { color: #ff0000; } .rank-2 { color: #ff6600; } .rank-3 { color: #009900; }
+        .rank-4 { color: #0000ff; } .rank-5 { color: #666666; }
+
+        #info-panel { display: flex; justify-content: space-between; width: 100%; margin-top: 20px; gap: 20px; }
+        @media (max-width: 600px) { #info-panel { flex-direction: column; } }
+
+        .panel-box { background-color: white; border: 3px solid #333; border-radius: 10px; padding: 15px; flex: 1; box-shadow: 3px 3px 0 #333; }
+        .panel-title { text-align: center; font-size: 1.5rem; border-bottom: 2px solid #ccc; margin-bottom: 10px; padding-bottom: 5px; color: #333; }
+        .prize-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 1.1rem; }
+        .prize-row.total { border-top: 2px solid #ccc; padding-top: 5px; font-weight: bold; color: #ff6600; }
+
+        .common-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); z-index: 2000; justify-content: center; align-items: center;
+        }
+
+        .modal-content {
+            background-color: white; padding: 40px; border-radius: 20px; text-align: center;
+            border: 5px solid #ffcc00; box-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+            animation: slideDown 0.3s ease-out; max-width: 80%;
+        }
+
+        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .modal-rank { font-size: 4rem; margin: 10px 0; }
+        .modal-message { font-size: 1.5rem; color: #555; margin-bottom: 20px; }
+
+        button.btn-primary {
+            background-color: #3b82f6; color: white; border: 4px solid #2563eb; padding: 15px 30px; font-size: 1.5rem;
+            border-radius: 10px; cursor: pointer; font-family: inherit; box-shadow: 0 5px 0 #2563eb, 0 10px 15px rgba(0,0,0,0.3); transition: all 0.1s;
+        }
+        button.btn-primary:active { transform: translateY(5px); box-shadow: 0 0 0 #2563eb, 0 5px 10px rgba(0,0,0,0.3); }
+
+        button.btn-danger {
+            background-color: #ff4444; color: white; border: 4px solid #cc0000; padding: 15px 30px; font-size: 1.5rem;
+            border-radius: 10px; cursor: pointer; font-family: inherit; box-shadow: 0 5px 0 #cc0000, 0 10px 15px rgba(0,0,0,0.3); transition: all 0.1s;
+        }
+        button.btn-danger:active { transform: translateY(5px); box-shadow: 0 0 0 #cc0000, 0 5px 10px rgba(0,0,0,0.3); }
+
+        button.close-btn {
+            background-color: #ff4444; color: white; border: none; padding: 10px 20px; font-size: 1.2rem;
+            border-radius: 8px; cursor: pointer; font-family: inherit; box-shadow: 2px 2px 0 #cc0000;
+        }
+        button.close-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+        
+        #toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.8);
+            color: white; padding: 10px 20px; border-radius: 30px; font-size: 1.2rem; display: none;
+            z-index: 3000; animation: fadeInOut 2s ease-in-out forwards;
+        }
+        
+        @keyframes fadeInOut { 0% { opacity: 0; bottom: 10px; } 15% { opacity: 1; bottom: 20px; } 85% { opacity: 1; bottom: 20px; } 100% { opacity: 0; bottom: 10px; } }
+
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.4rem; gap: 10px; }
+        .setting-input { width: 80px; padding: 5px 10px; font-size: 1.2rem; text-align: right; border: 2px solid #ccc; border-radius: 5px; font-family: inherit; flex-shrink: 0;}
+        .setting-msg-input { flex-grow: 1; padding: 5px 10px; font-size: 1.1rem; border: 2px solid #ccc; border-radius: 5px; font-family: inherit; width: 100%; }
+        .board-name-input { width: 100%; padding: 10px; font-size: 1.5rem; border: 3px solid #3b82f6; border-radius: 8px; font-family: inherit; text-align: center; }
+
+        @media (max-width: 600px) {
+            .setting-row { flex-wrap: wrap; justify-content: flex-start; }
+            .setting-msg-input { width: 100%; margin-top: 5px; margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 홈 화면 (뽑기판 목록) -->
+    <div id="view-home" class="view-section active">
+        <div id="home-container">
+            <div class="header-title" style="font-size: 3rem;">
+                <span style="font-size: 2.5rem;">🏫</span> 문방구 뽑기방 <span style="font-size: 2.5rem;">🍭</span>
+            </div>
+            
+            <button class="btn-primary" onclick="showCreateBoardModal()" style="width: 100%; margin-top: 10px;">
+                + 새 뽑기판 만들기
+            </button>
+
+            <div id="board-list" class="board-list">
+                <!-- 동적으로 목록이 추가됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 게임 화면 (뽑기 진행) -->
+    <div id="view-game" class="view-section">
+        <div id="game-container">
+            <button class="back-btn" onclick="goHome()">◀ 목록으로</button>
+
+            <div class="header-title">
+                <span style="font-size: 2rem;">✨</span> <span id="current-board-title">추억의 뽑기</span> <span style="font-size: 2rem;">✨</span>
+            </div>
+
+            <div id="ticket-board"></div>
+
+            <div id="info-panel">
+                <div class="panel-box">
+                    <div class="panel-title">배열표 (초기 수량)</div>
+                    <div class="prize-row"><span class="rank-1">일등</span><span id="info-count-1">1개</span></div>
+                    <div class="prize-row"><span class="rank-2">이등</span><span id="info-count-2">3개</span></div>
+                    <div class="prize-row"><span class="rank-3">삼등</span><span id="info-count-3">16개</span></div>
+                    <div class="prize-row"><span class="rank-4">사등</span><span id="info-count-4">100개</span></div>
+                    <div class="prize-row"><span class="rank-5">오등</span><span id="info-count-5">400개</span></div>
+                    <div class="prize-row total"><span>총합</span><span id="info-total">520개</span></div>
+                </div>
+
+                <div class="panel-box">
+                    <div class="panel-title">남은 상품 현황</div>
+                    <div class="prize-row"><span class="rank-1">일등</span><span id="rem-1">1개</span></div>
+                    <div class="prize-row"><span class="rank-2">이등</span><span id="rem-2">3개</span></div>
+                    <div class="prize-row"><span class="rank-3">삼등</span><span id="rem-3">16개</span></div>
+                    <div class="prize-row"><span class="rank-4">사등</span><span id="rem-4">100개</span></div>
+                    <div class="prize-row"><span class="rank-5">오등</span><span id="rem-5">400개</span></div>
+                    <div class="prize-row total"><span>남은 뽑기</span><span id="rem-total">520개</span></div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px; width: 100%; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-danger" onclick="showResetModal()" style="font-size: 1.2rem; padding: 10px 20px;">새 판 꺼내기(초기화)</button>
+                <button class="btn-primary" onclick="showSettingModal()" style="font-size: 1.2rem; padding: 10px 20px;">⚙️ 수량 설정</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 새 뽑기판 만들기 -->
+    <div id="modal-create-board" class="common-modal">
+        <div class="modal-content" style="border-color: #3b82f6; box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); width: 400px;">
+            <div class="modal-message" style="font-size: 2rem; color: #1e3a8a; font-weight: bold; margin-top: 0;">새 뽑기판 이름</div>
+            <input type="text" id="input-board-name" class="board-name-input" placeholder="예: 5학년 3반 뽑기" maxlength="15">
+            <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+                <button class="close-btn" style="background-color: #ccc; color: #333; box-shadow: 2px 2px 0 #999;" onclick="closeModal('modal-create-board')">취소</button>
+                <button class="close-btn" style="background-color: #3b82f6; box-shadow: 2px 2px 0 #2563eb;" onclick="createBoard()">만들기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 수량 및 상품 설정 -->
+    <div id="modal-setting" class="common-modal">
+        <div class="modal-content" style="border-color: #3b82f6; box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); width: 600px; max-width: 95vw; padding: 30px 20px;">
+            <div class="modal-message" style="font-size: 2rem; color: #1e3a8a; font-weight: bold; margin-top: 0; margin-bottom: 20px;">수량 및 상품 설정</div>
+            
+            <div class="setting-row" style="font-size: 1.1rem; color: #666; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; display: flex;">
+                <span style="width: 50px;">등수</span>
+                <span style="width: 80px; text-align: center;">수량</span>
+                <span style="flex-grow: 1; text-align: center; display: inline-block;">당첨 메시지 (상품명)</span>
+            </div>
+
+            <div class="setting-row">
+                <span class="rank-1" style="width: 50px;">일등</span> 
+                <input type="number" id="input-rank-1" class="setting-input" min="0" oninput="updateTotalCalc()">
+                <input type="text" id="input-msg-1" class="setting-msg-input" placeholder="일등 상품 메시지 입력">
+            </div>
+            <div class="setting-row">
+                <span class="rank-2" style="width: 50px;">이등</span> 
+                <input type="number" id="input-rank-2" class="setting-input" min="0" oninput="updateTotalCalc()">
+                <input type="text" id="input-msg-2" class="setting-msg-input" placeholder="이등 상품 메시지 입력">
+            </div>
+            <div class="setting-row">
+                <span class="rank-3" style="width: 50px;">삼등</span> 
+                <input type="number" id="input-rank-3" class="setting-input" min="0" oninput="updateTotalCalc()">
+                <input type="text" id="input-msg-3" class="setting-msg-input" placeholder="삼등 상품 메시지 입력">
+            </div>
+            <div class="setting-row">
+                <span class="rank-4" style="width: 50px;">사등</span> 
+                <input type="number" id="input-rank-4" class="setting-input" min="0" oninput="updateTotalCalc()">
+                <input type="text" id="input-msg-4" class="setting-msg-input" placeholder="사등 상품 메시지 입력">
+            </div>
+            <div class="setting-row">
+                <span class="rank-5" style="width: 50px;">오등</span> 
+                <input type="number" id="input-rank-5" class="setting-input" min="0" oninput="updateTotalCalc()">
+                <input type="text" id="input-msg-5" class="setting-msg-input" placeholder="오등 상품 메시지 입력">
+            </div>
+            
+            <div class="setting-row" style="border-top: 2px solid #ccc; padding-top: 15px; margin-top: 15px; font-weight: bold; color: #ff6600;">
+                <span>총 뽑기 개수</span> <span id="setting-total-calc">0개</span>
+            </div>
+            <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+                <button class="close-btn" style="background-color: #ccc; color: #333; box-shadow: 2px 2px 0 #999;" onclick="closeModal('modal-setting')">취소</button>
+                <button class="close-btn" style="background-color: #3b82f6; box-shadow: 2px 2px 0 #2563eb;" onclick="saveSettings()">저장 및 재시작</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 당첨 결과 -->
+    <div id="modal-result" class="common-modal" style="z-index: 2500;">
+        <div class="modal-content">
+            <div id="modal-rank-text" class="modal-rank"></div>
+            <div id="modal-message-text" class="modal-message"></div>
+            <button class="close-btn" onclick="closeModal('modal-result')">확인</button>
+        </div>
+    </div>
+    
+    <!-- 모달: 초기화 경고 -->
+    <div id="modal-reset" class="common-modal">
+        <div class="modal-content" style="border-color: #ff4444; box-shadow: 0 0 30px rgba(255, 68, 68, 0.5);">
+            <div class="modal-message" style="font-size: 2.5rem; color: #ff0000; font-weight: bold; margin-top: 0;">경고!</div>
+            <div class="modal-message">정말 새 판을 꺼내시겠습니까?<br>현재 뽑기판의 진행 상황이 지워집니다.</div>
+            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 30px;">
+                <button class="close-btn" style="background-color: #ccc; color: #333; box-shadow: 2px 2px 0 #999;" onclick="closeModal('modal-reset')">아니오</button>
+                <button class="close-btn" onclick="executeReset()">네, 바꿀래요!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림창 -->
+    <div id="toast"></div>
+
+    <script>
+        // --- 글로벌 데이터 ---
+        const BOARDS_KEY = 'retro_gacha_boards_list';
+        let boards = [];
+        let currentBoardId = null;
+
+        // 게임 핵심 상태 (현재 활성화된 뽑기판)
+        let config = {};
+        let tickets = []; 
+        let openedTickets = [];
+        let remainingPrizes = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        let remainingTotal = 0;
+        let isOpening = false; 
+        let audioCtx;
+
+        // 기본 설정 템플릿
+        const DEFAULT_CONFIG = {
+            total: 520,
+            prizes: {
+                1: { count: 1, name: '일등', msg: '🎉 대박! 커다란 잉어 엿 당첨! 🎉', color: '#ff0000' },
+                2: { count: 3, name: '이등', msg: '✨ 축하합니다! 장난감 세트 당첨! ✨', color: '#ff6600' },
+                3: { count: 16, name: '삼등', msg: '👍 꽤 운이 좋으시네요! 끈끈이 손 당첨!', color: '#009900' },
+                4: { count: 100, name: '사등', msg: '소소한 행복! 알사탕 당첨!', color: '#0000ff' },
+                5: { count: 400, name: '오등', msg: '아쉽네요. 쫀드기 하나 드려요~', color: '#666666' }
+            }
+        };
+
+        // --- 앱 초기화 및 화면 전환 ---
+        window.onload = function() {
+            const savedBoards = localStorage.getItem(BOARDS_KEY);
+            boards = savedBoards ? JSON.parse(savedBoards) : [];
+            goHome();
+        };
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        function goHome() {
+            currentBoardId = null;
+            renderBoardList();
+            switchView('view-home');
+        }
+
+        function enterBoard(id, name) {
+            currentBoardId = id;
+            document.getElementById('current-board-title').textContent = name;
+            switchView('view-game');
+            initGame();
+        }
+
+        // --- 목록 관리 (홈 화면) ---
+        function renderBoardList() {
+            const listEl = document.getElementById('board-list');
+            listEl.innerHTML = '';
+
+            if (boards.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; padding: 20px; color:#666;">만들어진 뽑기판이 없습니다. <br>새로 만들어보세요!</div>';
+                return;
+            }
+
+            // 최신순 정렬
+            const sorted = [...boards].sort((a, b) => b.createdAt - a.createdAt);
+
+            sorted.forEach(board => {
+                const item = document.createElement('div');
+                item.className = 'board-item';
+                
+                const dateStr = new Date(board.createdAt).toLocaleDateString();
+
+                item.innerHTML = `
+                    <div class="board-info" onclick="enterBoard('${board.id}', '${board.name}')">
+                        <div class="board-name">${board.name}</div>
+                        <div class="board-date">생성일: ${dateStr}</div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteBoard('${board.id}', event)">삭제</button>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function showCreateBoardModal() {
+            document.getElementById('input-board-name').value = '';
+            document.getElementById('modal-create-board').style.display = 'flex';
+        }
+
+        function createBoard() {
+            const nameInput = document.getElementById('input-board-name').value.trim();
+            const name = nameInput || `뽑기판 ${boards.length + 1}`;
+            const id = 'board_' + Date.now();
+            
+            boards.push({ id, name, createdAt: Date.now() });
+            localStorage.setItem(BOARDS_KEY, JSON.stringify(boards));
+            
+            closeModal('modal-create-board');
+            showToast(`'${name}' 뽑기판이 생성되었습니다.`);
+            enterBoard(id, name); // 생성 즉시 진입
+        }
+
+        function deleteBoard(id, event) {
+            event.stopPropagation(); // 카드 클릭(입장) 이벤트 방지
+            if(confirm("정말로 이 뽑기판을 삭제하시겠습니까?\n모든 기록이 사라집니다.")) {
+                boards = boards.filter(b => b.id !== id);
+                localStorage.setItem(BOARDS_KEY, JSON.stringify(boards));
+                // 개별 로컬 스토리지 데이터 정리
+                localStorage.removeItem(`config_${id}`);
+                localStorage.removeItem(`save_${id}`);
+                renderBoardList();
+            }
+        }
+
+        // --- 개별 뽑기판 로직 (게임 화면) ---
+
+        function getStorageKeys() {
+            return {
+                configKey: `config_${currentBoardId}`,
+                saveKey: `save_${currentBoardId}`
+            };
+        }
+
+        function saveGameState() {
+            const { saveKey } = getStorageKeys();
+            const gameState = { tickets, openedTickets, remainingPrizes, remainingTotal };
+            localStorage.setItem(saveKey, JSON.stringify(gameState));
+        }
+
+        function loadGameState() {
+            const { saveKey } = getStorageKeys();
+            const saved = localStorage.getItem(saveKey);
+            return saved ? JSON.parse(saved) : null;
+        }
+        
+        function loadCustomConfig() {
+            const { configKey } = getStorageKeys();
+            const savedConfig = localStorage.getItem(configKey);
+            // 기본 설정을 깊은 복사하여 덮어씌움 (보드 전환 시 꼬임 방지)
+            config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+            if (savedConfig) {
+                config = JSON.parse(savedConfig);
+            }
+        }
+
+        function initGame() {
+            loadCustomConfig(); 
+            const savedState = loadGameState();
+            const board = document.getElementById('ticket-board');
+            board.innerHTML = '';
+
+            if (savedState && savedState.tickets && savedState.tickets.length === config.total) {
+                // 기존 데이터 로드
+                tickets = savedState.tickets;
+                openedTickets = savedState.openedTickets || [];
+                remainingPrizes = savedState.remainingPrizes;
+                remainingTotal = savedState.remainingTotal;
+            } else {
+                // 새 판 생성
+                tickets = [];
+                openedTickets = [];
+                remainingTotal = config.total;
+                remainingPrizes = { 
+                    1: config.prizes[1].count, 2: config.prizes[2].count, 
+                    3: config.prizes[3].count, 4: config.prizes[4].count, 5: config.prizes[5].count 
+                };
+                
+                for (let rank = 1; rank <= 5; rank++) {
+                    for (let i = 0; i < config.prizes[rank].count; i++) { tickets.push(rank); }
+                }
+                // 섞기
+                for (let i = tickets.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [tickets[i], tickets[j]] = [tickets[j], tickets[i]];
+                }
+                saveGameState();
+            }
+
+            updateUIPanels();
+
+            // 렌더링
+            for (let i = 0; i < config.total; i++) {
+                const ticketEl = document.createElement('div');
+                ticketEl.className = 'ticket';
+                ticketEl.dataset.index = i;
+                
+                const textEl = document.createElement('span');
+                textEl.className = 'result-text';
+                ticketEl.appendChild(textEl);
+                
+                if (openedTickets.includes(i)) {
+                    ticketEl.classList.add('opened');
+                    const rank = tickets[i];
+                    textEl.textContent = config.prizes[rank].name;
+                    textEl.classList.add(`rank-${rank}`);
+                } else {
+                    ticketEl.addEventListener('click', () => openTicket(ticketEl, i));
+                }
+                board.appendChild(ticketEl);
+            }
+        }
+
+        function updateUIPanels() {
+            for(let i=1; i<=5; i++) {
+                document.getElementById(`info-count-${i}`).textContent = `${config.prizes[i].count}개`;
+                document.getElementById(`rem-${i}`).textContent = `${remainingPrizes[i]}개`;
+            }
+            document.getElementById(`info-total`).textContent = `${config.total}개`;
+            document.getElementById(`rem-total`).textContent = `${remainingTotal}개`;
+        }
+
+        // --- 사운드 로직 ---
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume(); 
+        }
+
+        function playTensionSound() {
+            initAudio();
+            const duration = 2.0; const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const oscGain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(1500, t + duration);
+            oscGain.gain.setValueAtTime(0, t); oscGain.gain.linearRampToValueAtTime(0.5, t + 1.8); oscGain.gain.linearRampToValueAtTime(0, t + duration);
+            osc.connect(oscGain); oscGain.connect(audioCtx.destination); osc.start(t); osc.stop(t + duration);
+
+            const bufferSize = audioCtx.sampleRate * duration; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.7; 
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.Q.value = 1.0; noiseFilter.frequency.setValueAtTime(200, t); noiseFilter.frequency.exponentialRampToValueAtTime(5000, t + duration);
+            const noiseGain = audioCtx.createGain(); noiseGain.gain.setValueAtTime(0, t); noiseGain.gain.exponentialRampToValueAtTime(0.6, t + duration - 0.1); noiseGain.gain.linearRampToValueAtTime(0, t + duration);
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioCtx.destination); noise.start(t); noise.stop(t + duration);
+        }
+
+        function playImpactSound() {
+            initAudio();
+            const t = audioCtx.currentTime; const duration = 0.6;
+            const bufferSize = audioCtx.sampleRate * duration; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.05)); 
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000;
+            const noiseGain = audioCtx.createGain(); noiseGain.gain.value = 1.0;
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioCtx.destination); noise.start(t);
+        }
+
+        function playTone(freq, type, vol, duration) {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.value = freq;
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playChord(frequencies, type, volume, duration=0.5) {
+            frequencies.forEach(freq => playTone(freq, type, volume / frequencies.length, duration));
+        }
+        
+        function playKick() {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playFailSound() {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function playEnhanceSound(rank) {
+            initAudio();
+            if (rank <= 3) playImpactSound();
+
+            if (rank === 1) {
+                setTimeout(() => playChord([523.25, 659.25, 783.99], 'square', 0.8, 0.15), 50); 
+                setTimeout(() => playChord([523.25, 659.25, 783.99], 'square', 0.8, 0.15), 250); 
+                setTimeout(() => playChord([587.33, 739.99, 880.00], 'square', 0.8, 0.15), 450); 
+                setTimeout(() => playChord([659.25, 830.61, 987.77, 1318.51], 'square', 1.2, 1.5), 650); 
+            } else if (rank === 2) {
+                setTimeout(() => playChord([392.00, 493.88, 587.33], 'square', 0.8, 0.2), 50); 
+                setTimeout(() => playChord([523.25, 659.25, 783.99], 'square', 1.0, 1.2), 250); 
+            } else if (rank === 3) {
+                setTimeout(() => playTone(523.25, 'triangle', 0.6, 0.3), 50); 
+                setTimeout(() => playTone(659.25, 'triangle', 0.6, 0.3), 150); 
+                setTimeout(() => playTone(783.99, 'triangle', 0.7, 0.8), 250); 
+            } else if (rank === 4) { playKick(); } 
+            else { playFailSound(); }
+        }
+
+        // --- 게임 인터랙션 로직 ---
+        function openTicket(element, index) {
+            if (element.classList.contains('opened') || isOpening) return;
+            isOpening = true;
+            try { playTensionSound(); } catch(e) {}
+            
+            const rect = element.getBoundingClientRect();
+            const clone = element.cloneNode(true);
+            clone.style.position = 'fixed'; clone.style.top = rect.top + 'px'; clone.style.left = rect.left + 'px';
+            clone.style.width = rect.width + 'px'; clone.style.height = rect.height + 'px';
+            clone.style.margin = '0'; clone.style.zIndex = '9999'; clone.style.transition = 'all 2s cubic-bezier(0.25, 0.1, 0.25, 1)';
+            clone.style.boxShadow = '0 0 0 rgba(0,0,0,0)';
+            
+            document.body.appendChild(clone);
+            element.style.opacity = '0';
+            clone.getBoundingClientRect();
+            
+            clone.style.top = '50%'; clone.style.left = '50%';
+            clone.style.transform = 'translate(-50%, -50%) scale(8) rotate(1080deg)';
+            clone.style.boxShadow = '0 20px 50px rgba(0,0,0,0.5)';
+
+            setTimeout(() => {
+                if (document.body.contains(clone)) document.body.removeChild(clone);
+                element.style.opacity = '1'; element.style.transform = ''; element.classList.add('opened');
+                
+                const rank = tickets[index];
+                const textEl = element.querySelector('.result-text');
+                textEl.textContent = config.prizes[rank].name;
+                textEl.classList.add(`rank-${rank}`);
+                
+                openedTickets.push(index);
+                remainingPrizes[rank]--; remainingTotal--;
+                updateUIPanels();
+                saveGameState(); 
+
+                try { playEnhanceSound(rank); } catch(e) {}
+                
+                const prizeInfo = config.prizes[rank];
+                document.getElementById('modal-rank-text').textContent = prizeInfo.name;
+                document.getElementById('modal-rank-text').style.color = prizeInfo.color;
+                document.getElementById('modal-message-text').textContent = prizeInfo.msg;
+                document.getElementById('modal-result').style.display = 'flex';
+            }, 2000); 
+        }
+
+        // --- 공통 유틸 / 모달 로직 ---
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.style.animation = 'none'; toast.offsetHeight; toast.style.animation = null; 
+            toast.textContent = message; toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'modal-result') isOpening = false;
+        }
+        
+        function showResetModal() { document.getElementById('modal-reset').style.display = 'flex'; }
+        
+        function executeReset() {
+            closeModal('modal-reset');
+            const { saveKey } = getStorageKeys();
+            localStorage.removeItem(saveKey); 
+            initGame(); 
+            showToast("새 판을 준비했습니다!");
+        }
+
+        function showSettingModal() {
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`input-rank-${i}`).value = config.prizes[i].count;
+                document.getElementById(`input-msg-${i}`).value = config.prizes[i].msg;
+            }
+            updateTotalCalc();
+            document.getElementById('modal-setting').style.display = 'flex';
+        }
+
+        function updateTotalCalc() {
+            let total = 0;
+            for (let i = 1; i <= 5; i++) {
+                total += (parseInt(document.getElementById(`input-rank-${i}`).value) || 0);
+            }
+            document.getElementById('setting-total-calc').textContent = `${total}개`;
+        }
+
+        function saveSettings() {
+            let newTotal = 0;
+            for (let i = 1; i <= 5; i++) {
+                let val = parseInt(document.getElementById(`input-rank-${i}`).value) || 0;
+                let msg = document.getElementById(`input-msg-${i}`).value.trim();
+                
+                if(val < 0) val = 0;
+                config.prizes[i].count = val;
+                config.prizes[i].msg = msg || `상품 없음 (${i}등)`; // 비어있을 경우 기본값
+                newTotal += val;
+            }
+            if (newTotal === 0) { showToast("최소 1개 이상의 뽑기가 필요합니다."); return; }
+
+            config.total = newTotal;
+            const { configKey, saveKey } = getStorageKeys();
+            localStorage.setItem(configKey, JSON.stringify(config)); 
+            closeModal('modal-setting');
+            
+            localStorage.removeItem(saveKey); // 설정 변경 시 기존 판 파기
+            initGame();
+            showToast("수량과 상품이 변경되어 새 판이 생성되었습니다!");
+        }
+    </script>
+</body>
+</html>
